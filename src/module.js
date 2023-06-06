@@ -33,21 +33,44 @@ function makeModulesString (modules) {
 }
 
 export const register = {
-  vuexStores ({ fullStoreDir, exclude = [] }) {
+  vuexStores ({ fullStoreDir, exclude = [], externalModules = [] }) {
     const imports = [], aliases = [], store = { modules: {} }
     let rootStore
-    const pattern = `${fullStoreDir}/**/!(*.test)*+(.mjs|.ts|.js)`
+    const pattern = `${fullStoreDir}/**/!(*.test|actions|mutations|state)*+(.mjs|.ts|.js)`
     const storeDefinitionFiles = (glob.sync(pattern))
       .filter(file => ! exclude.includes(file))
 
-    storeDefinitionFiles.forEach((f) => {
+    
+    const internalDefenitions = storeDefinitionFiles.map(f => {
       const path = f
         .replace(fullStoreDir, '')
         .replace(/^\//g, '')
-
       const nsp = path.replace(/(\/|\.js|\.mjs|\.ts)/g, '')
-
       const alias = nsp + 'VuexStore'
+
+      const namespace = path.replace(/\.(js|mjs)$/, '')
+      const namespaces = namespace.split('/')
+
+      return {
+        alias,
+        f,
+        namespaces
+      }
+    })
+
+    const externalDefenitions = externalModules.map( el => ({
+      isExternal: true,
+      alias: el.name + 'VuexStore',
+      f: el.src,
+      namespaces: [el.name]
+    }))
+
+
+    const allDefenitions = [...internalDefenitions, ...externalDefenitions]
+
+    allDefenitions.forEach(d => {
+      const { alias, namespaces, f } = d
+
       imports.push({ from: f, name: '*', as: alias })
       aliases.push(alias)
 
@@ -56,8 +79,6 @@ export const register = {
         rootStore = alias
       } else {
         // Modules
-        const namespace = path.replace(/\.(js|mjs)$/, '')
-        const namespaces = namespace.split('/')
         addModule(store, namespaces, alias)
       }
     })
@@ -87,12 +108,14 @@ export default defineNuxtModule({
     const {
       storeDir = 'store',
       exclude = [],
+      externalModules = []
     } = moduleOptions
 
     const fullStoreDir = resolve(nuxt.options.srcDir, storeDir)
     if (existsSync(fullStoreDir)) {
+      console.log('import.meta.url', import.meta.url);
       const { resolve } = createResolver(import.meta.url)
-      register.vuexStores({ fullStoreDir, exclude })
+      register.vuexStores({ fullStoreDir, exclude, externalModules })
       addPlugin({
         src: resolve('./plugin.js'),
       })
