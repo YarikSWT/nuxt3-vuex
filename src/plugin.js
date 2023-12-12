@@ -1,6 +1,6 @@
 import { createStore } from 'vuex'
 import { defineNuxtPlugin } from '#app'
-import VuexStore from '#build/vuexStore.js'
+import VuexStore from '#build/vuexStore'
 
 export default defineNuxtPlugin((nuxtApp) => {
   const store = createStore(VuexStore)
